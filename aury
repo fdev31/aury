@@ -63,7 +63,6 @@ class Pypi:
         r = [ {'url': x['url'], 'md5': x['md5_digest']}
             for x in self.rel_info(pkg, version)]
         if not r:
-            # Ghost.py, argh, pyPdf
             res = json.loads(request.urlopen('http://pypi.python.org/pypi/%s/json'%quote(pkg)).read().decode('utf-8'))
             if res['urls']:
                 r = [ {'url': x['url'], 'md5': x['md5_digest']}
