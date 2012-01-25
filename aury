@@ -95,7 +95,7 @@ doc = XML(request.urlopen(uri).read().decode('utf-8'))
 
 lc_map = {x.lower():x for x in conf['lowercase']}
 
-print('Processing', end='')
+print('Processing...')
 
 ns = {'x': 'http://www.w3.org/1999/xhtml'}
 
@@ -132,8 +132,7 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
             pkg = lc_map[pkg]
 
         # display some progress information (a dot currently)
-        print(".", end='')
-        sys.stdout.flush()
+        print(pkg)
 
         # get pypi informations
         utd_ver = pkg_index.last_release(pkg)
@@ -160,3 +159,4 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
             f.write( ("%s %s %s\n"%(opkg, utd_ver, md5)).encode())
             # TODO: update the PKGBUILD file inplace
             f.close()
+print("Done!")
