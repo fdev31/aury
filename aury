@@ -8,10 +8,12 @@ Sample configuration file:
 
 -----8<---snip----8<--
 {
-    "user": "toto",
+    "user": "<your AUR login>",
     "lowercase": [ "ZConfig", "Ghost.py" ]
 }
 -----8<---snip----8<--
+
+Use "lowercase" to give hints about the "official" (Pypi) package name.
 
 Returns:
     1 if no configuration is given
@@ -45,6 +47,7 @@ import json # pypi
 import tarfile, io # PKGBUILD fetching
 import hashlib # md5
 from urllib.parse import quote # json urls
+import itertools
 
 class Pypi:
     def __init__(self):
@@ -98,10 +101,16 @@ print('Processing...')
 
 ns = {'x': 'http://www.w3.org/1999/xhtml'}
 
+valid = itertools.count()
+scm   = itertools.count()
+total = itertools.count()
+nopython= itertools.count()
+
 for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
 
     tds = list(tr.findall('x:td', namespaces=ns))
     if tds:
+        next(total)
         # extract name & version
         opkg, ver =  tds[1].find('x:span/x:a/x:span', namespaces=ns).text.rsplit(None, 1)
         ver = ver.rsplit('-', 1)[0]
@@ -109,6 +118,7 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
 
         # skip DEV packages
         if pkg.endswith('-git') or pkg.endswith('-hg'):
+            next(scm)
             continue
 
         # download the package itself
@@ -120,6 +130,7 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
         # skip non-python packages
         if 'python' not in open(os.path.join(opkg, 'PKGBUILD')).read():
             print('non python: %s'%opkg)
+            next(nopython)
             continue
 
         # strip prefix
@@ -135,6 +146,11 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
 
         # get pypi informations
         utd_ver = pkg_index.last_release(pkg)
+        if not utd_ver:
+            print('Unable to find "{0}" on Pypi !,\n you may need to add this package to "lowercase" section of {1}'.format(pkg, sys.argv[1]))
+            continue
+
+        next(valid)
 
         # if version is not a digit, skip it
         if utd_ver[0].isalpha():
@@ -158,4 +174,6 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
             f.write( ("%s %s %s\n"%(opkg, utd_ver, md5)).encode())
             # TODO: update the PKGBUILD file inplace
             f.close()
-print("Done!")
+
+print("processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
+
