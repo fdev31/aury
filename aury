@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+import sys
+
+def print_help(exit_code=None, message=None):
+    print('''Syntax: %s <JSON configuration file>
+
+Sample configuration file:
+
+-----8<---snip----8<--
+{
+    "user": "toto",
+    "lowercase": [ "ZConfig", "Ghost.py" ]
+}
+-----8<---snip----8<--
+
+Returns:
+    1 if no configuration is given
+    2 if the configuration is not valid
+'''%sys.argv[0])
+
+    if message: print(message)
+    if exit_code: raise SystemExit(exit_code)
+
+if len(sys.argv) != 2:
+    print_help(1,
+        'Please give a single valid JSON file as parameter (should contain "user: <user id>")')
+elif sys.argv[1].endswith('help'):
+    print_help(1)
+
+import json # configuration
+
+try:
+    conf = json.load(open(sys.argv[1]))
+except Exception as e:
+    print_help(2,
+        'ERROR: %s\n%r should be a valid JSON file.'%(e, sys.argv[1]))
+
+print("Warming up")
+
+import os
+from urllib import request # http
+from xml.etree.ElementTree import XML # xhtml parsing
+import xmlrpc.client as rpc_client # pypi
+import json # pypi
+import tarfile, io # PKGBUILD fetching
+import hashlib # md5
+from urllib.parse import quote # json urls
+
+class Pypi:
+    def __init__(self):
+        self._xml = rpc_client.ServerProxy('http://pypi.python.org/pypi')
+
+    def last_release(self, pkg):
+        r = self._xml.package_releases(pkg)
+        if r:
+            return r[0]
+
+    def rel_info(self, pkg, version):
+        r = self._xml.release_urls(pkg, version)
+        return r
+
+    def get_links(self, pkg, version):
+        r = [ {'url': x['url'], 'md5': x['md5_digest']}
+            for x in self.rel_info(pkg, version)]
+        if not r:
+            # Ghost.py, argh, pyPdf
+            res = json.loads(request.urlopen('http://pypi.python.org/pypi/%s/json'%quote(pkg)).read().decode('utf-8'))
+            if res['urls']:
+                r = [ {'url': x['url'], 'md5': x['md5_digest']}
+                    for x in res['urls']]
+            elif 'download_url' in res['info']:
+                r = [ {'url': res['info']['download_url'], 'md5': None} ]
+            else:
+                r = [ {'url': res['info']['package_url'], 'md5': None} ]
+        return r
+
+    def get_source_link(self, pkg, version):
+        links = self.get_links(pkg, version)
+        if not links:
+            return
+        for infos in links:
+            if '/source/' in infos['url']:
+                return infos
+        for infos in links:
+            if not '.egg' in infos['url']:
+                return infos
+        return links[0]
+
+pkg_index = Pypi()
+
+uri = 'https://aur.archlinux.org/packages.php?SeB=m&L=2&K='+conf['user']
+
+print("Connecting...")
+doc = XML(request.urlopen(uri).read().decode('utf-8'))
+
+lc_map = {x.lower():x for x in conf['lowercase']}
+
+print('Processing', end='')
+
+ns = {'x': 'http://www.w3.org/1999/xhtml'}
+
+for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
+
+    tds = list(tr.findall('x:td', namespaces=ns))
+    if tds:
+        # extract name & version
+        opkg, ver =  tds[1].find('x:span/x:a/x:span', namespaces=ns).text.rsplit(None, 1)
+        ver = ver.rsplit('-', 1)[0]
+        pkg = opkg
+
+        # skip DEV packages
+        if pkg.endswith('-git') or pkg.endswith('-hg'):
+            continue
+
+        # download the package itself
+        if not os.path.exists(opkg):
+            tgz = request.urlopen('http://aur.archlinux.org/packages/{0}/{0}.tar.gz'.format(opkg)).read()
+            tar = tarfile.TarFile.gzopen(opkg+'.tgz', fileobj=io.BytesIO(tgz))
+            tar.extractall()
+
+        # skip non-python packages
+        if 'python' not in open(os.path.join(opkg, 'PKGBUILD')).read():
+            print('non python: %s'%opkg)
+            continue
+
+        # strip prefix
+        if pkg.startswith('python2-') or pkg.startswith('python-'):
+            pkg = pkg.split('-', 1)[1]
+
+        # fix the caption from the map
+        if pkg in lc_map:
+            pkg = lc_map[pkg]
+
+        # display some progress information (a dot currently)
+        print(".", end='')
+        sys.stdout.flush()
+
+        # get pypi informations
+        utd_ver = pkg_index.last_release(pkg)
+
+        # if version is not a digit, skip it
+        if utd_ver[0].isalpha():
+            print('Skipping bad PyPi version information for %s (%r)'%(pkg, utd_ver))
+        # if it's not matching the latest version, ugrade !
+        elif utd_ver != ver:
+            print( "%s (%s => %s)"%(opkg, ver, utd_ver) )
+            # get the md5 value
+            infos = pkg_index.get_source_link(pkg, utd_ver)
+            if infos['md5']:
+                md5 = infos['md5']
+            else:
+                md5 = hashlib.md5()
+                while True:
+                    d = request.urlopen(infos['url']).read(2**16)
+                    if not d:
+                        break
+                    md5.update(d)
+                md5 = md5.hexdigest()
+            f = open(os.path.join(opkg, 'version.txt'), 'wb')
+            f.write( ("%s %s %s\n"%(opkg, utd_ver, md5)).encode())
+            # TODO: update the PKGBUILD file inplace
+            f.close()
