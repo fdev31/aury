@@ -116,16 +116,16 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
         ver = ver.rsplit('-', 1)[0]
         pkg = opkg
 
-        # skip DEV packages
-        if pkg.endswith('-git') or pkg.endswith('-hg'):
-            next(scm)
-            continue
-
         # download the package itself
         if not os.path.exists(opkg):
             tgz = request.urlopen('http://aur.archlinux.org/packages/{0}/{0}.tar.gz'.format(opkg)).read()
             tar = tarfile.TarFile.gzopen(opkg+'.tgz', fileobj=io.BytesIO(tgz))
             tar.extractall()
+
+        # skip DEV packages
+        if pkg.endswith('-git') or pkg.endswith('-hg'):
+            next(scm)
+            continue
 
         # skip non-python packages
         if 'python' not in open(os.path.join(opkg, 'PKGBUILD')).read():
