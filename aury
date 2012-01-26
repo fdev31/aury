@@ -187,5 +187,5 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
             # TODO: update the PKGBUILD file inplace
             f.close()
 
-print("processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
+print("Processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
 
