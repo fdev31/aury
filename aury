@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import sys
 
 def print_help(exit_code=None, message=None):
@@ -24,22 +25,29 @@ Returns:
     if exit_code: raise SystemExit(exit_code)
 
 if len(sys.argv) != 2:
-    print_help(1,
-        'Please give a single valid JSON file as parameter (should contain "user: <user id>")')
-elif sys.argv[1].endswith('help'):
-    print_help(1)
+    conf_name = os.path.expanduser('~/.config/aury/config')
+    conf_dir = os.path.dirname(conf_name)
+    if not os.path.exists(conf_name):
+        os.makedirs(conf_dir)
+        open(conf_name, 'w').write('{\n"user": "<your AUR login>",\n"lowercase": []\n}\n');
+        print_help(1,
+        'Please give a single valid JSON file as parameter (should contain "user: <user id>")\nYou can also edit %r and restart %s'%(conf_name, sys.argv[0]))
+    os.chdir(conf_dir)
+else:
+    if sys.argv[1].endswith('help'):
+        print_help(1)
+    conf_name = sys.argv[1]
 
 import json # configuration
 
 try:
-    conf = json.load(open(sys.argv[1]))
+    conf = json.load(open(conf_name))
 except Exception as e:
     print_help(2,
-        'ERROR: %s\n%r should be a valid JSON file.'%(e, sys.argv[1]))
+        'ERROR: %s\n%r should be a valid JSON file.'%(e, conf_name))
 
 print("Warming up")
 
-import os
 from urllib import request # http
 from xml.etree.ElementTree import XML # xhtml parsing
 import xmlrpc.client as rpc_client # pypi
@@ -47,6 +55,7 @@ import json # pypi
 import tarfile, io # PKGBUILD fetching
 import hashlib # md5
 from urllib.parse import quote # json urls
+from urllib.error import HTTPError
 import itertools
 
 class Pypi:
@@ -93,7 +102,10 @@ pkg_index = Pypi()
 uri = 'https://aur.archlinux.org/packages.php?SeB=m&L=2&K='+conf['user']
 
 print("Connecting...")
-doc = XML(request.urlopen(uri).read().decode('utf-8'))
+try:
+    doc = XML(request.urlopen(uri).read().decode('utf-8'))
+except HTTPError:
+    print_help(3, message="Please check your %r file, login looks invalid"%conf_name)
 
 lc_map = {x.lower():x for x in conf['lowercase']}
 
@@ -147,7 +159,7 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
         # get pypi informations
         utd_ver = pkg_index.last_release(pkg)
         if not utd_ver:
-            print('Unable to find "{0}" on Pypi !,\n you may need to add this package to "lowercase" section of {1}'.format(pkg, sys.argv[1]))
+            print('Unable to find "{0}" on Pypi !,\n you may need to add this package to "lowercase" section of {1}'.format(pkg, conf_name))
             continue
 
         next(valid)
