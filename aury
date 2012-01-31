@@ -182,10 +182,17 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
                         break
                     md5.update(d)
                 md5 = md5.hexdigest()
-            f = open(os.path.join(opkg, 'version.txt'), 'wb')
-            f.write( ("%s %s %s\n"%(opkg, utd_ver, md5)).encode())
-            # TODO: update the PKGBUILD file inplace
-            f.close()
+            PKGBUILD = open(os.path.join(opkg, 'PKGBUILD')).readlines()
+            for i, line in enumerate(PKGBUILD):
+                if line.startswith('pkgver'):
+                    PKGBUILD[i] = 'pkgver=%s\n'%utd_ver
+                elif line.startswith('pkgrel'):
+                    PKGBUILD[i] = 'pkgrel=1\n'
+                elif line.startswith('md5sums'):
+                    PKGBUILD[i] = "md5sums=('%s')\n"%md5
+
+            open(os.path.join(opkg, 'PKGBUILD'), 'w').writelines(PKGBUILD)
+            os.system('cd %s && makepkg -f --source && burp %s-%s-1.src.tar.gz'%(opkg, opkg, utd_ver))
 
 print("Processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
 
