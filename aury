@@ -109,7 +109,7 @@ except HTTPError:
 
 lc_map = {x.lower():x for x in conf['lowercase']}
 
-print('Processing...')
+print('Processing:')
 
 ns = {'x': 'http://www.w3.org/1999/xhtml'}
 
@@ -141,7 +141,7 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
 
         # skip non-python packages
         if 'python' not in open(os.path.join(opkg, 'PKGBUILD')).read():
-            print('non python: %s'%opkg)
+            print(' - %s (skipping: not a standard python package)'%opkg)
             next(nopython)
             continue
 
@@ -154,7 +154,7 @@ for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
             pkg = lc_map[pkg]
 
         # display some progress information (a dot currently)
-        print(pkg)
+        print(" *", pkg)
 
         # get pypi informations
         utd_ver = pkg_index.last_release(pkg)
