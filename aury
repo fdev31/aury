@@ -49,7 +49,7 @@ except Exception as e:
 print("Warming up")
 
 from urllib import request # http
-from xml.etree.ElementTree import XML # xhtml parsing
+from xml.etree import cElementTree as ElementTree # xhtml parsing
 import xmlrpc.client as rpc_client # pypi
 import json # pypi
 import tarfile, io # PKGBUILD fetching
@@ -99,11 +99,13 @@ class Pypi:
 
 pkg_index = Pypi()
 
-uri = 'https://aur.archlinux.org/packages.php?SeB=m&L=2&K='+conf['user']
+uri = 'https://aur.archlinux.org/packages.php?SeB=m&PP=250&L=2&K='+conf['user']
 
 print("Connecting...")
 try:
-    doc = XML(request.urlopen(uri).read().decode('utf-8'))
+    d = request.urlopen(uri).read().decode('utf-8').replace('&nbsp;', ' ').replace('&copy;', '')
+    doc = ElementTree.fromstring(d)
+    del d
 except HTTPError:
     print_help(3, message="Please check your %r file, login looks invalid"%conf_name)
 
@@ -118,19 +120,21 @@ scm   = itertools.count()
 total = itertools.count()
 nopython= itertools.count()
 
-for tr in doc.findall('.//x:form/x:div/x:table/x:tr', namespaces=ns):
+for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
 
     tds = list(tr.findall('x:td', namespaces=ns))
     if tds:
         next(total)
         # extract name & version
-        opkg, ver =  tds[1].find('x:span/x:a/x:span', namespaces=ns).text.rsplit(None, 1)
+        opkg =  tds[1].find('x:a', namespaces=ns).text.strip()
+        ver = tds[2].text.strip()
         ver = ver.rsplit('-', 1)[0]
         pkg = opkg
 
         # download the package itself
         if not os.path.exists(opkg):
-            tgz = request.urlopen('http://aur.archlinux.org/packages/{0}/{0}.tar.gz'.format(opkg)).read()
+            pfx = opkg[:2]
+            tgz = request.urlopen('http://aur.archlinux.org/packages/{1}/{0}/{0}.tar.gz'.format(opkg, pfx)).read()
             tar = tarfile.TarFile.gzopen(opkg+'.tgz', fileobj=io.BytesIO(tgz))
             tar.extractall()
 
