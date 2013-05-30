@@ -194,7 +194,7 @@ for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
                     PKGBUILD[i] = "md5sums=('%s')\n"%md5
 
             open(os.path.join(opkg, 'PKGBUILD'), 'w').writelines(PKGBUILD)
-            os.system('cd %s && makepkg -f --source && burp %s-%s-1.src.tar.gz'%(opkg, opkg, utd_ver))
+            os.system('cd %s && makepkg -f && makepkg --source && burp %s-%s-1.src.tar.gz'%(opkg, opkg, utd_ver))
 
 print("Processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
 
