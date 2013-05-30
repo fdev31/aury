@@ -38,9 +38,14 @@ Most of the time, it's because the packager changed the compression format, this
 But today, you must go to ``~/.config/aury/<package name>``, edit the ``PKGBUILD`` file and run ``makepkg -s`` or ``makepkg -si`` to check if it works.
 Then, run ``aury`` again, still with no arguments, to apply your fix and upload the package.
 
+# Bugs
+
+None known, but I can only test on my packages...
+
 # Future
 
 Today I'm quite happy with the result, it automates all the packages I own on AUR, but:
 
 - Detect a compression format change in the package URL ?
+
 
