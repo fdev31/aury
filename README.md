@@ -1,14 +1,14 @@
-# AURy - AUR python packages upgrade automation
+# AURy - Python package upgrader for AUR
 
 ## What's this ?
 
-Aury is an automatic Python packages upgrader for AUR (archlinux) users.
+Aury is an automatic Python packages upgrader for **AUR** (archlinux) users.
 
 In short it will:
 
 - get the list of packages you own
 - if they follow the standard python packages naming convention:
-    - check if there is an upgrade on PyPi
+    - check if there is an upgrade on **PyPi**
     - edit the PKGBUILD:
         - pkgver
         - pkgrel
@@ -46,11 +46,11 @@ In short it will:
 
 ## Configuration
 
-Let *aury* fail once
+Let **aury** fail once
 
     % aury
 
-Then edit the ``~/.config/aury/config`` file to suit your AUR website login.
+Then edit the ``~/.config/aury/config`` file to suit your **AUR** website login.
 It should list your AUR python package one by one. You may need to list some
 package names in the configuration file under ``lowercase`` entry since AUR
 only accepts lowercase names.
@@ -66,12 +66,17 @@ only accepts lowercase names.
 ## Running
 
 Most things are now automated, you just have to fix failures related to the package itself.
-So, most of the time, run ``aury`` and you'r done (you may have to fill the "lowercase" attribute of the configuration in case a new package needs it.
+So, most of the time, run ``aury`` and you'r done (you may have to fill the ``lowercase`` attribute of the configuration in case a new package needs it.
 
-### When something fails
+### When a package upgrade fails
 
 Most of the time, it's because the packager changed the compression format, this could be handled automatically in future...
-But today, you must go to ``~/.config/aury/<package name>``, edit the ``PKGBUILD`` file and run ``makepkg -s`` or ``makepkg -si`` to check if it works.
+But today, you must:
+
+- go to ``~/.config/aury/<package name>``
+- edit the ``PKGBUILD`` file 
+- run ``makepkg -s`` or ``makepkg -si`` to check if it works.
+
 Then, run ``aury`` again, still with no arguments, to apply your fix and upload the package.
 
 ## Bugs
