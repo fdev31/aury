@@ -19,19 +19,28 @@ It should list your AUR python package one by one. You may need to list some
 package names in the configuration file under ``lowercase`` entry since AUR
 only accepts lowercase names.
 
+## Sample "real life" config
+
+    {
+    "user": "fab31",
+    "lowercase": ["Ghost.py", "pyPdf", "Paste", "ZConfig", "pyScss", "Moar"]
+    }
+
+
 # Running
 
-The tool is currently Work In Progress, later more things will be automated.
-Today's workflow consists in:
+Most things are now automated, you just have to fix failures related to the package itself.
+So, most of the time, run ``aury`` and you'r done (you may have to fill the "lowercase" attribute of the configuration in case a new package needs it.
 
-- running  ``aury`` command without any argument (the configuration file must be filled correctly, it's JSON)
-- reading the traces, you will know if some package needs an update with a trace like ``python-paste (1.7.5.0 => 1.7.5.1)``
-- going to your ``~/.config/aury/`` folder to edit ``version.txt`` files under package folders to update the content of the ``PKGBUILD`` file
-- installing the package (``makepkg -si``) and running some tests to check everything is ok
-- push manually using ``makepkg --source`` and ``burp``
+## When something fails
+
+Most of the time, it's because the packager changed the compression format, this could be handled automatically in future...
+But today, you must go to ``~/.config/aury/<package name>``, edit the ``PKGBUILD`` file and run ``makepkg -s`` or ``makepkg -si`` to check if it works.
+Then, run ``aury`` again, still with no arguments, to apply your fix and upload the package.
 
 # Future
 
-- ``PKGBUILD`` file will automatically be updated
-- User will be interactively prompted to push the file to servers
+Today I'm quite happy with the result, it automates all the packages I own on AUR, but:
+
+- Detect a compression format change in the package URL ?
 
