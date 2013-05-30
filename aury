@@ -13,20 +13,18 @@ Sample configuration file:
     "lowercase": [ "ZConfig", "Ghost.py" ]
 }
 -----8<---snip----8<--
+Default location is: %s
 
 Use "lowercase" to give hints about the "official" (Pypi) package name.
-
-Returns:
-    1 if no configuration is given
-    2 if the configuration is not valid
-'''%sys.argv[0])
+'''%(sys.argv[0], conf_name))
 
     if message: print(message)
     if exit_code: raise SystemExit(exit_code)
 
+conf_name = os.path.expanduser('~/.config/aury/config')
+conf_dir = os.path.dirname(conf_name)
+
 if len(sys.argv) != 2:
-    conf_name = os.path.expanduser('~/.config/aury/config')
-    conf_dir = os.path.dirname(conf_name)
     if not os.path.exists(conf_name):
         os.makedirs(conf_dir)
         open(conf_name, 'w').write('{\n"user": "<your AUR login>",\n"lowercase": []\n}\n');
