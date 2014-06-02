@@ -12,7 +12,7 @@ arch=('any')
 url="https://github.com/fdev31/aury.git"
 license=('MIT')
 depends=($_py)
-makedepends=($_py "$_py-distribute" 'git')
+makedepends=($_py "$_py-distribute" "git" "$_py-lxml" "$_py-cssselect")
 conflicts=("$_py-$_gitname")
 
 _gitroot="git://github.com/fdev31/$_gitname.git"
