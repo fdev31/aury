@@ -11,7 +11,7 @@ pkgdesc="Automates maintenance of AUR python packages"
 arch=('any')
 url="https://github.com/fdev31/aury.git"
 license=('MIT')
-depends=($_py "$_py-lxml" "$_py-cssselect" "pkgbuild-introspection")
+depends=($_py "$_py-lxml" "$_py-cssselect" "pkgbuild-introspection" "burp")
 makedepends=($_py "git")
 conflicts=("$_py-$_gitname")
 
