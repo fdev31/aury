@@ -7,12 +7,21 @@ import json
 import os
 import sys
 import tarfile
-import xmlrpc.client as rpc_client
+try: # py3
+    import xmlrpc.client as rpc_client
+except ImportError:
+    import xmlrpclib as rpc_client
 
 from lxml import html
-from urllib import request
-from urllib.error import HTTPError
-from urllib.parse import quote
+try:
+    from urllib import request
+except ImportError: # py2
+    import urllib as request
+    from urllib import quote
+    HTTPError = Exception
+else:
+    from urllib.error import HTTPError
+    from urllib.parse import quote
 
 PYPI_URL = 'http://pypi.python.org/pypi'
 conf_name = os.path.expanduser('~/.config/aury/config')
@@ -161,7 +170,7 @@ for tr in doc.cssselect('form table tbody tr'):
             pkg = lc_map[pkg]
 
         # display some progress information (a dot currently)
-        print(" *", pkg)
+        print(" * %s"%pkg)
 
         # get pypi informations
         utd_ver = pkg_index.last_release(pkg)
