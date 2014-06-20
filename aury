@@ -1,6 +1,23 @@
 #!/usr/bin/env python
+
+import hashlib
+import io
+import itertools
+import json
 import os
 import sys
+import tarfile
+import xmlrpc.client as rpc_client
+
+from lxml import html
+from urllib import request
+from urllib.error import HTTPError
+from urllib.parse import quote
+
+PYPI_URL = 'http://pypi.python.org/pypi'
+conf_name = os.path.expanduser('~/.config/aury/config')
+conf_dir = os.path.dirname(conf_name)
+
 
 def print_help(exit_code=None, message=None):
     print('''Syntax: %s <JSON configuration file>
@@ -16,49 +33,18 @@ Sample configuration file:
 Default location is: %s
 
 Use "lowercase" to give hints about the "official" (Pypi) package name.
-'''%(sys.argv[0], conf_name))
+''' % (sys.argv[0], conf_name))
 
-    if message: print(message)
-    if exit_code: raise SystemExit(exit_code)
+    if message:
+        print(message)
+    if exit_code:
+        raise SystemExit(exit_code)
 
-conf_name = os.path.expanduser('~/.config/aury/config')
-conf_dir = os.path.dirname(conf_name)
-
-if len(sys.argv) != 2:
-    if not os.path.exists(conf_name):
-        os.makedirs(conf_dir)
-        open(conf_name, 'w').write('{\n"user": "<your AUR login>",\n"lowercase": []\n}\n');
-        print_help(1,
-        'Please give a single valid JSON file as parameter (should contain "user: <user id>")\nYou can also edit %r and restart %s'%(conf_name, sys.argv[0]))
-    os.chdir(conf_dir)
-else:
-    if sys.argv[1].endswith('help'):
-        print_help(1)
-    conf_name = sys.argv[1]
-
-import json # configuration
-
-try:
-    conf = json.load(open(conf_name))
-except Exception as e:
-    print_help(2,
-        'ERROR: %s\n%r should be a valid JSON file.'%(e, conf_name))
-
-print("Warming up")
-
-from urllib import request # http
-from xml.etree import cElementTree as ElementTree # xhtml parsing
-import xmlrpc.client as rpc_client # pypi
-import json # pypi
-import tarfile, io # PKGBUILD fetching
-import hashlib # md5
-from urllib.parse import quote # json urls
-from urllib.error import HTTPError
-import itertools
 
 class Pypi:
+
     def __init__(self):
-        self._xml = rpc_client.ServerProxy('http://pypi.python.org/pypi')
+        self._xml = rpc_client.ServerProxy(PYPI_URL)
 
     def last_release(self, pkg):
         r = self._xml.package_releases(pkg)
@@ -70,17 +56,18 @@ class Pypi:
         return r
 
     def get_links(self, pkg, version):
-        r = [ {'url': x['url'], 'md5': x['md5_digest']}
-            for x in self.rel_info(pkg, version)]
+        r = [{'url': x['url'], 'md5': x['md5_digest']}
+             for x in self.rel_info(pkg, version)]
         if not r:
-            res = json.loads(request.urlopen('http://pypi.python.org/pypi/%s/json'%quote(pkg)).read().decode('utf-8'))
+            req = request.urlopen('%s/%s/json'.format(PYPI_URL, quote(pkg)))
+            res = json.loads(req.read().decode('utf-8'))
             if res['urls']:
-                r = [ {'url': x['url'], 'md5': x['md5_digest']}
-                    for x in res['urls']]
+                r = [{'url': x['url'], 'md5': x['md5_digest']}
+                     for x in res['urls']]
             elif 'download_url' in res['info']:
-                r = [ {'url': res['info']['download_url'], 'md5': None} ]
+                r = [{'url': res['info']['download_url'], 'md5': None}]
             else:
-                r = [ {'url': res['info']['package_url'], 'md5': None} ]
+                r = [{'url': res['info']['package_url'], 'md5': None}]
         return r
 
     def get_source_link(self, pkg, version):
@@ -91,40 +78,58 @@ class Pypi:
             if '/source/' in infos['url']:
                 return infos
         for infos in links:
-            if not '.egg' in infos['url']:
+            if '.egg' not in infos['url']:
                 return infos
         return links[0]
 
+
+if len(sys.argv) != 2:
+    if not os.path.exists(conf_name):
+        os.makedirs(conf_dir)
+        with open(conf_name, 'w') as f:
+            f.write('{\n"user": "<your AUR login>",\n"lowercase": []\n}\n')
+
+        print_help(1, 'Please give a single valid JSON file as parameter (should contain "user: <user id>")\nYou can also edit %r and restart %s' % (conf_name, sys.argv[0]))
+    os.chdir(conf_dir)
+else:
+    if sys.argv[1].endswith('help'):
+        print_help(1)
+    conf_name = sys.argv[1]
+
+try:
+    conf = json.load(open(conf_name))
+except Exception as e:
+    print_help(2,
+                'ERROR: %s\n%r should be a valid JSON file.' % (e, conf_name))
+
+print("Warming up")
+
 pkg_index = Pypi()
 
-uri = 'https://aur.archlinux.org/packages.php?SeB=m&PP=250&L=2&K='+conf['user']
+uri = 'https://aur.archlinux.org/packages.php?SeB=m&PP=250&L=2&K=' + conf['user']
 
 print("Connecting...")
 try:
-    d = request.urlopen(uri).read().decode('utf-8').replace('&nbsp;', ' ').replace('&copy;', '')
-    doc = ElementTree.fromstring(d)
-    del d
+    doc = html.fromstring(request.urlopen(uri).read())
 except HTTPError:
-    print_help(3, message="Please check your %r file, login looks invalid"%conf_name)
+    print_help(3, "Please check your %r file, login looks invalid" % conf_name)
 
-lc_map = {x.lower():x for x in conf['lowercase']}
+lc_map = {x.lower(): x for x in conf['lowercase']}
 
 print('Processing:')
 
-ns = {'x': 'http://www.w3.org/1999/xhtml'}
-
 valid = itertools.count()
-scm   = itertools.count()
+scm = itertools.count()
 total = itertools.count()
-nopython= itertools.count()
+nopython = itertools.count()
 
-for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
+for tr in doc.cssselect('form table tbody tr'):
 
-    tds = list(tr.findall('x:td', namespaces=ns))
+    tds = tr.findall('td')
     if tds:
         next(total)
         # extract name & version
-        opkg =  tds[1].find('x:a', namespaces=ns).text.strip()
+        opkg = tds[1].find('a').text.strip()
         ver = tds[2].text.strip()
         ver = ver.rsplit('-', 1)[0]
         pkg = opkg
@@ -133,7 +138,7 @@ for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
         if not os.path.exists(opkg):
             pfx = opkg[:2]
             tgz = request.urlopen('http://aur.archlinux.org/packages/{1}/{0}/{0}.tar.gz'.format(opkg, pfx)).read()
-            tar = tarfile.TarFile.gzopen(opkg+'.tgz', fileobj=io.BytesIO(tgz))
+            tar = tarfile.TarFile.gzopen(opkg + '.tgz', fileobj=io.BytesIO(tgz))
             tar.extractall()
 
         # skip DEV packages
@@ -143,7 +148,7 @@ for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
 
         # skip non-python packages
         if 'python' not in open(os.path.join(opkg, 'PKGBUILD')).read():
-            print(' - %s (skipping: not a standard python package)'%opkg)
+            print(' - %s (skipping: not a standard python package)' % opkg)
             next(nopython)
             continue
 
@@ -168,10 +173,10 @@ for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
 
         # if version is not a digit, skip it
         if utd_ver[0].isalpha():
-            print('Skipping bad PyPi version information for %s (%r)'%(pkg, utd_ver))
+            print('Skipping bad PyPi version information for %s (%r)' % (pkg, utd_ver))
         # if it's not matching the latest version, ugrade !
         elif utd_ver != ver:
-            print( "%s (%s => %s)"%(opkg, ver, utd_ver) )
+            print("%s (%s => %s)" % (opkg, ver, utd_ver))
             # get the md5 value
             infos = pkg_index.get_source_link(pkg, utd_ver)
             if infos['md5']:
@@ -179,7 +184,7 @@ for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
             else:
                 md5 = hashlib.md5()
                 while True:
-                    d = request.urlopen(infos['url']).read(2**16)
+                    d = request.urlopen(infos['url']).read(2 ** 16)
                     if not d:
                         break
                     md5.update(d)
@@ -187,14 +192,13 @@ for tr in doc.findall('.//x:form/x:table/x:tbody/x:tr', namespaces=ns):
             PKGBUILD = open(os.path.join(opkg, 'PKGBUILD')).readlines()
             for i, line in enumerate(PKGBUILD):
                 if line.startswith('pkgver'):
-                    PKGBUILD[i] = 'pkgver=%s\n'%utd_ver
+                    PKGBUILD[i] = 'pkgver=%s\n' % utd_ver
                 elif line.startswith('pkgrel'):
                     PKGBUILD[i] = 'pkgrel=1\n'
                 elif line.startswith('md5sums'):
-                    PKGBUILD[i] = "md5sums=('%s')\n"%md5
+                    PKGBUILD[i] = "md5sums=('%s')\n" % md5
 
             open(os.path.join(opkg, 'PKGBUILD'), 'w').writelines(PKGBUILD)
-            os.system('cd %s && makepkg -f && makepkg --source && burp %s-%s-1.src.tar.gz'%(opkg, opkg, utd_ver))
+            os.system('cd %s && makepkg -f && mkaurball -f && burp %s-%s-1.src.tar.gz' % (opkg, opkg, utd_ver))
 
 print("Processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
-

@@ -11,13 +11,13 @@ pkgdesc="Automates maintenance of AUR python packages"
 arch=('any')
 url="https://github.com/fdev31/aury.git"
 license=('MIT')
-depends=($_py)
-makedepends=($_py "$_py-distribute" 'git')
+depends=($_py "$_py-lxml" "$_py-cssselect" "pkgbuild-introspection")
+makedepends=($_py "git")
 conflicts=("$_py-$_gitname")
 
 _gitroot="git://github.com/fdev31/$_gitname.git"
 
-build() {
+package() {
     cd $srcdir
 
     msg "Connecting to GIT server..."

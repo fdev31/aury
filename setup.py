@@ -18,9 +18,8 @@ setup(
         'Environment :: Console',
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.1',
-        'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Topic :: System :: Archiving :: Packaging',
     ]
 )
