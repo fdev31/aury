@@ -115,7 +115,7 @@ print("Warming up")
 
 pkg_index = Pypi()
 
-uri = 'https://aur.archlinux.org/packages.php?SeB=m&PP=250&L=2&K=' + conf['user']
+uri = 'https://aur4.archlinux.org/packages.php?SeB=m&K=' + conf['user']
 
 print("Connecting...")
 try:
@@ -132,23 +132,24 @@ scm = itertools.count()
 total = itertools.count()
 nopython = itertools.count()
 
+
+errors = []
 for tr in doc.cssselect('form table tbody tr'):
+
 
     tds = tr.findall('td')
     if tds:
         next(total)
         # extract name & version
-        opkg = tds[1].find('a').text.strip()
-        ver = tds[2].text.strip()
+        opkg = tds[0].find('a').text.strip()
+        ver = tds[1].text.strip()
         ver = ver.rsplit('-', 1)[0]
         pkg = opkg
 
         # download the package itself
+
         if not os.path.exists(opkg):
-            pfx = opkg[:2]
-            tgz = request.urlopen('http://aur.archlinux.org/packages/{1}/{0}/{0}.tar.gz'.format(opkg, pfx)).read()
-            tar = tarfile.TarFile.gzopen(opkg + '.tgz', fileobj=io.BytesIO(tgz))
-            tar.extractall()
+            os.system('git clone ssh://aur@aur.archlinux.org/'+opkg+' >/dev/null 2>&1')
 
         # skip DEV packages
         if pkg.endswith('-git') or pkg.endswith('-hg'):
@@ -208,6 +209,14 @@ for tr in doc.cssselect('form table tbody tr'):
                     PKGBUILD[i] = "md5sums=('%s')\n" % md5
 
             open(os.path.join(opkg, 'PKGBUILD'), 'w').writelines(PKGBUILD)
-            os.system('cd %s && makepkg -f && mkaurball -f && burp %s-%s-1.src.tar.gz' % (opkg, opkg, utd_ver))
+            if os.system('cd %s && (makepkg --noconfirm -sf >out.log 2>.err.log) && mksrcinfo && sync; git add .SRCINFO PKGBUILD ; (git commit -a -m "%s %s" >/dev/null 2>&1) ; git push' % (opkg, opkg, utd_ver)):
+                errors.append((opkg, utd_ver))
 
 print("Processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
+if errors:
+    print(" FAIL LOG ".center(80, '#'))
+    for err in errors:
+        print((' %s -> %s '%err).center(80, '-'))
+        print(open(os.path.join(conf_dir, err[0], '.err.log')).read())
+
+    print("cd %s and take a look at 'out.log' if it helps fixing issues"%conf_dir)
