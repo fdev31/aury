@@ -209,7 +209,7 @@ for tr in doc.cssselect('form table tbody tr'):
                     PKGBUILD[i] = "md5sums=('%s')\n" % md5
 
             open(os.path.join(opkg, 'PKGBUILD'), 'w').writelines(PKGBUILD)
-            if os.system('cd %s && (makepkg --noconfirm -sf >out.log 2>.err.log) && mksrcinfo && sync; git add .SRCINFO PKGBUILD ; (git commit -a -m "%s %s" >/dev/null 2>&1) ; git push' % (opkg, opkg, utd_ver)):
+            if os.system('cd %s && (makepkg --noconfirm -sf >out.log 2>.err.log) && (mksrcinfo && sync; git add .SRCINFO PKGBUILD ; (git commit -a -m "%s %s" >/dev/null 2>&1) ; git push)' % (opkg, opkg, utd_ver)):
                 errors.append((opkg, utd_ver))
 
 print("Processed {0} packages ({1} found, {2} rolling packages, {3} non-python).".format(next(valid), next(total), next(scm), next(nopython)))
